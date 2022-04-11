@@ -1,58 +1,27 @@
 const xlsx = require("xlsx");
-const helper = require("./helpers");
+const isValidDomain = require("is-valid-domain");
 
+//Read the input file
 const filename = "Demo_report_20200820.xlsx";
-const originalWB = xlsx.readFile(filename, { blankRows: false });
-const originalWS = originalWB.Sheets[originalWB.SheetNames[0]];
-const expectedWS = originalWB.Sheets["Expected_Format"];
+const WB = xlsx.readFile(filename, { blankRows: false });
+const WS = WB.Sheets[WB.SheetNames[0]];
 
-/* TO DELETE UNNECESSARY ROWS AT THE BEGINNING OF FILE */
-
-//Convert expected sheet to array or array
-var headers = {
-  Sites: [],
-  Countries: [],
-  "Device categories": [],
-  "Ad requests": [],
-  "Matched requests": [],
-  "Ad impressions": [],
-  "Estimated revenue": [],
-};
-
-var originalAOA = xlsx.utils
-  .sheet_to_json(originalWS, { header: 1 })
+//Convert the original sheet to a 2 dimensional array (also remove empty rows) for manipulating
+var sheetArray = xlsx.utils
+  .sheet_to_json(WS, { header: 1 })
   .filter((e) => e.length);
 
-var date_range;
-var data_rows = 0;
-for (let i = 0; i < originalAOA.length; i++) {
-  for (let j = 0; j < originalAOA[i].length; j++) {
-    // Save the date range for adding as a new column
-    if (originalAOA[i][j] == "Date range") {
-      date_range = originalAOA[i][j + 1];
-      continue;
-    }
-    // Save the data of the respective columns
-    if (headers.hasOwnProperty(originalAOA[i][j])) {
-      headers[originalAOA[i][j]] = originalAOA
-        .map((cell) => cell[j])
-        .slice(i + 1, originalAOA.length);
-      data_rows = originalAOA.length - i;
-    }
-  }
-}
-
-var map_headers = {
-  Domains: "Sites",
-  Network: "Countries",
-  Device: "Device categories",
-  Requests: "Ad requests",
-  Responses: "Matched requests",
-  Impressions: "Ad impressions",
-  "Gross Revenue": "Estimated revenue",
+var headersMapping = {
+  Sites: "Domains",
+  Countries: "Network",
+  "Device categories": "Device",
+  "Ad requests": "Requests",
+  "Matched requests": "Responses",
+  "Ad impressions": "Impressions",
+  "Estimated revenue": "Gross Revenue",
 };
 
-var data = [
+var output = [
   "Date", //0
   "Network", //1
   "Domains", //2
@@ -63,18 +32,42 @@ var data = [
   "Gross Revenue", //7
 ];
 
-data[0] = new Array(data_rows).fill(date_range);
-for (let i = 1; i < data.length; i++) {
-  data[i] = headers[map_headers[data[i]]];
+// Find the wanted headers in the array then store the output of the respective header to an array
+var dateRange;
+var outputLength = 0;
+for (let i = 0; i < sheetArray.length; i++) {
+  for (let j = 0; j < sheetArray[i].length; j++) {
+    // Save the date range for adding as a new column in the expected format
+    if (sheetArray[i][j] == "Date range") {
+      dateRange = sheetArray[i][j + 1];
+      continue;
+    }
+    // Save the output of the respective columns
+    if (headersMapping.hasOwnProperty(sheetArray[i][j])) {
+      output[headersMapping[sheetArray[i][j]]] = sheetArray
+        .map((row) => row[j])
+        .slice(i + 1, sheetArray.length);
+      //length of the column
+      outputLength = sheetArray.length - i;
+    }
+  }
 }
 
-data = data[0].map((_, colIndex) => data.map((row) => row[colIndex]));
+output[0] = new Array(outputLength).fill(dateRange);
+for (let i = 1; i < 8; i++) {
+  output[i] = output[output[i]];
+}
 
-data = data.filter(function (row) {
-  if (helper.isValidDomain(row[2])) return row;
+// Rotate 90 degree the output array
+output = output[0].map((_, colIndex) => output.map((row) => row[colIndex]));
+
+// Validating the domain column (removing rows that have invalid domain)
+output = output.filter(function (row) {
+  if (isValidDomain(row[2])) return row;
 });
 
-data.unshift([
+// Add the expected headers to output
+output.unshift([
   "Date",
   "Network",
   "Domains",
@@ -85,8 +78,8 @@ data.unshift([
   "Gross Revenue",
 ]);
 
+// Export to CSV
 var newWB = xlsx.utils.book_new();
-var newWS = xlsx.utils.aoa_to_sheet(data);
-//Empty rows at the beginning are already removed when use book_append_sheet
+var newWS = xlsx.utils.aoa_to_sheet(output);
 xlsx.utils.book_append_sheet(newWB, newWS);
 xlsx.writeFile(newWB, "processed_demo_report_20200820.csv");
