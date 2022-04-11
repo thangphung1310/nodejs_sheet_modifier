@@ -61,9 +61,13 @@ for (let i = 1; i < 8; i++) {
 // Rotate 90 degree the output array
 output = output[0].map((_, colIndex) => output.map((row) => row[colIndex]));
 
-// Validating the domain column (removing rows that have invalid domain)
+// Validating the 'domain' column (removing rows that have invalid domain)
 output = output.filter(function (row) {
   if (isValidDomain(row[2])) return row;
+});
+// Delete rows that have "undefined" cells
+output = output.filter(function (row) {
+  if (row.indexOf(undefined) == -1) return row;
 });
 
 // Add the expected headers to output
