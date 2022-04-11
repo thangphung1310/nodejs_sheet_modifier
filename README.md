@@ -1,3 +1,5 @@
+Make sure you already installed Node.js in your computer. Run `node -v` in your terminal to check if node is installed.
+
 1. Clone or download the repo
 2. In the repo, run `npm install` to install the required packages
 3. Run `node main.js` to run the script
